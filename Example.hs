@@ -27,19 +27,19 @@ import Control.Monad.CatchIO ( MonadCatchIO, catch )
 -- from transformers:
 import Control.Monad.Trans ( MonadIO, lift )
 
--- safe-files
-import System.IO.SafeFiles ( RegionT
-                           , runTopRegion
-                           , runRegionT
-                           , File
-                           , openFile
-                           , IOMode(ReadMode, WriteMode)
-                           , dup
-                           , hGetLine
-                           , hIsEOF
-                           , hPutStrLn
-                           , print
-                           )
+-- from safer-file-handles:
+import System.IO.SaferFileHandles ( RegionT
+                                  , runTopRegion
+                                  , runRegionT
+                                  , File
+                                  , openFile
+                                  , IOMode(ReadMode, WriteMode)
+                                  , dup
+                                  , hGetLine
+                                  , hIsEOF
+                                  , hPutStrLn
+                                  , print
+                                  )
 
 
 --------------------------------------------------------------------------------
