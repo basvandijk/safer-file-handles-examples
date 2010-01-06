@@ -1,0 +1,28 @@
+name:          safe-files-examples
+version:       0.1
+cabal-version: >=1.6
+build-type:    Simple
+license:       BSD3
+license-file:  LICENSE
+copyright:     2010 Bas van Dijk, Oleg Kiselyov and Chung-chieh Shan
+author:        Bas van Dijk, Oleg Kiselyov and Chung-chieh Shan
+maintainer:    Bas van Dijk <v.dijk.bas@gmail.com>
+stability:     experimental
+category:      System, Monadic Regions
+synopsis:      Examples for the safe-files package
+description:   This package provides examples for the @safe-files@ package.
+               .
+               Among other things it ports the examples from Oleg Kiselyov and
+               Chung-chieh Shan. See: @SafeHandlesTest.hs@ from:
+               <http://okmij.org/ftp/Haskell/regions.html#light-weight>
+
+source-repository head
+  Type:     darcs
+  Location: http://code.haskell.org/~basvandijk/code/safe-files-examples
+
+Executable example
+  Main-is: Example.hs
+  build-depends: base                      >= 4 && < 4.3
+               , transformers              >= 0.1.4 && < 0.2
+               , MonadCatchIO-transformers == 0.0.2.*
+               , safe-files                == 0.1.*
