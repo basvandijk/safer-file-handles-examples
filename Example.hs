@@ -142,7 +142,7 @@ test2' = runTopRegion $ do
 -- safety is preserved.
 {-
 newtype WC r1 = WC
-    { unWC ∷ ∀ r2 . RegionT File r2 (RegionT File r1 IO) String }
+    { unWC ∷ ∀ r2 . RegionT r2 (RegionT r1 IO) String }
 
 test2'' = runTopRegion $ do
   h1 ← openFile "/dev/null" ReadMode
@@ -222,11 +222,11 @@ test3_internal ∷ ∀ ioMode
                    (pr1 :: * -> *) (pr2 :: * -> *)
                . ( ReadModes ioMode
                  , MonadCatchIO pr1
-                 , pr2 `ParentOf` (RegionT File s1 (RegionT File s2 pr1))
+                 , pr2 `ParentOf` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
-               → RegionT File s1 (RegionT File s2 pr1)
-                         (RegionalFileHandle W (RegionT File s2 pr1))
+               → RegionT s1 (RegionT s2 pr1)
+                         (RegionalFileHandle W (RegionT s2 pr1))
 -}
 test3_internal h1 = do
   h2 ← openFile "/tmp/ex-file.conf" ReadMode
