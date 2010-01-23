@@ -1,8 +1,10 @@
-{-# LANGUAGE UnicodeSyntax #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UnicodeSyntax
+           , NoImplicitPrelude
+           , RankNTypes
+           , KindSignatures
+           , ScopedTypeVariables
+           , FlexibleContexts
+  #-}
 
 --------------------------------------------------------------------------------
 -- Imports
