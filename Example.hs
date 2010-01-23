@@ -9,44 +9,36 @@
 --------------------------------------------------------------------------------
 
 -- from base:
-import Data.Function     ( ($) )
-import Data.Bool         ( Bool(True), (||), otherwise )
-import Data.Ord          ( (<) )
-import Data.Char         ( String )
-import Data.List         ( (++) )
-import Control.Monad     ( return, (>>=), fail
-                         , (>>), liftM2
-                         )
-import Control.Exception ( IOException )
-import Text.Show         ( show )
-import System.IO         ( IO )
+import Prelude            ( undefined, fromInteger )
+import Data.Function      ( ($) )
+import Data.Bool          ( Bool(True), (||), otherwise )
+import Data.Ord           ( (<) )
+import Data.Char          ( String )
+import Data.List          ( (++) )
+import Data.IORef         ( newIORef, writeIORef, readIORef )
+import Control.Monad      ( return, (>>=), fail
+                          , (>>), liftM2
+                          )
+import Control.Exception  ( IOException )
+import Control.Concurrent ( threadDelay )
+import Text.Show          ( show )
+import System.IO          ( IO )
 
 -- from MonadCatchIO-transformers:
 import Control.Monad.CatchIO ( MonadCatchIO, catch )
 
 -- from transformers:
-import Control.Monad.Trans ( MonadIO, lift )
+import Control.Monad.Trans ( MonadIO, lift, liftIO )
 
 -- from safer-file-handles:
-import System.IO.SaferFileHandles ( RegionT
-                                  , runTopRegion
-                                  , runRegionT
-                                  , File
-                                  , openFile
-                                  , IOMode(ReadMode, WriteMode)
-                                  , dup
-                                  , hGetLine
-                                  , hIsEOF
-                                  , hPutStrLn
-                                  , print
-                                  )
+import System.IO.SaferFileHandles
 
 
 --------------------------------------------------------------------------------
 -- Examples
 --------------------------------------------------------------------------------
 
-main = test1
+main = testThread
 
 hReport ∷ MonadIO m ⇒ String → m ()
 hReport = print -- TODO: Should actually be: hPutStrLn stderr
@@ -110,7 +102,6 @@ testmany = runTopRegion $ do
                         return h5
              hGetLine h5
 
-
 -- An attempt to leak the computation.
 -- Now, it won't work...
 {-
@@ -131,8 +122,6 @@ test2' = runTopRegion $ do
 
            return True
 -}
-
-
 
 -- The above error is merely due to force monomorphism in the
 -- monadic bind (do ac ← ...). One may think that a higher-rank type
@@ -163,34 +152,35 @@ test2'' = runTopRegion $ do
   return True
 -}
 
-
-
-{- TODO: I don't support 'sNewIORef' yet.
-
 -- Attempts to leak handles and computations via mutation
-testref = runTopRegion (
-    do
-    h1 ← openFile "fname1" ReadMode
-    rh ← sNewIORef undefined    -- a ref cell holding a handle
-    let c1 = hGetLine h1
-    c1
-    ra ← sNewIORef undefined    -- a ref cell holding a computation
-    runRegionT (do
-         h2 ← openFile "fname2" ReadMode
-         -- sWriteIORef rh h1
-         -- sWriteIORef rh h2 -- type error, 's' of the inner region escapes
-         -- sWriteIORef ra (hGetLine h1) -- OK
-         -- sWriteIORef ra (lift (hGetLine h2))
-         -- sWriteIORef ra (hGetLine h2) -- error: subtyping violation
-         return ()
-       )
-    runRegionT (do
-            -- sReadIORef ra >>= id
-            return ()
-           )
-    return True
-   )
--}
+testref = runTopRegion $ do
+            h1 ← openFile "fname1" ReadMode
+            rh ← liftIO $ newIORef undefined    -- a ref cell holding a handle
+            let c1 = hGetLine h1
+            c1
+            ra ← liftIO $ newIORef undefined    -- a ref cell holding a computation
+            runRegionT $ do
+              h2 ← openFile "fname2" ReadMode
+
+              -- TODO: this should work but doesn't!
+              -- liftIO $ writeIORef rh h1
+
+              -- liftIO $ writeIORef rh h2 -- type error, 's' of the inner region escapes
+
+              -- TODO: this should work but doesn't!
+              -- liftIO $ writeIORef ra (hGetLine h1)
+
+              -- TODO: this should work but doesn't!
+              -- liftIO $ writeIORef ra (lift (hGetLine h2))
+
+              -- liftIO $ writeIORef ra (hGetLine h2) -- error: subtyping violation
+              return ()
+
+            runRegionT $ do
+              -- liftIO $ readIORef ra >>= id
+              return ()
+
+            return True
 
 {- Ken's test:
 A programming example using the enumerator (rather than cursor) pattern to
@@ -216,7 +206,7 @@ test3 = runTopRegion $ do
 function. We can spread it out.
 
 The inferred type for the following is _region-polymorphic_:
-
+-}
 test3_internal ∷ ∀ ioMode
                    s1 s2
                    (pr1 :: * -> *) (pr2 :: * -> *)
@@ -226,8 +216,7 @@ test3_internal ∷ ∀ ioMode
                  )
                ⇒ RegionalFileHandle ioMode pr2
                → RegionT s1 (RegionT s2 pr1)
-                         (RegionalFileHandle W (RegionT s2 pr1))
--}
+                   (RegionalFileHandle W (RegionT s2 pr1))
 test3_internal h1 = do
   h2 ← openFile "/tmp/ex-file.conf" ReadMode
   fname ← hGetLine h2           -- read the fname from the config file
@@ -361,6 +350,27 @@ testp4r = runTopRegion $ do
   h1 ← openFile "/etc/motd" ReadMode
   testp4 h1
 -}
+
+testThread = runTopRegion $ do
+  h1 ← openFile "fname1" ReadMode
+  h2 ← openFile "fname2" ReadWriteMode
+  h3 ← openFile "fname3" WriteMode
+
+  tId1 ← forkTopRegion $ do
+    liftIO $ threadDelay 1000000
+    s ← hGetLine h1
+    hPutStrLn h2 s
+    putStrLn "Terminating thread 1."
+
+  tId2 ← forkTopRegion $ do
+    liftIO $ threadDelay 2000000
+    hSeek h2 AbsoluteSeek 0
+    s ← hGetLine h2
+    hPutStrLn h3 s
+    putStrLn "Terminating thread 2."
+
+  liftIO $ threadDelay 3000000
+  putStrLn "Terminating main thread."
 
 
 -- The End ---------------------------------------------------------------------
