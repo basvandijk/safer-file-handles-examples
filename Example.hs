@@ -212,14 +212,14 @@ The inferred type for the following is _region-polymorphic_:
 -}
 test3_internal ∷ ∀ ioMode
                    s1 s2
-                   (pr1 :: * -> *) (pr2 :: * -> *)
+                   (pr1 ∷ * → *) (pr2 ∷ * → *)
                . ( ReadModes ioMode
                  , MonadCatchIO pr1
                  , pr2 `ParentOf` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
                → RegionT s1 (RegionT s2 pr1)
-                   (RegionalFileHandle W (RegionT s2 pr1))
+                   (RegionalFileHandle WriteMode (RegionT s2 pr1))
 test3_internal h1 = do
   h2 ← openFile "/tmp/ex-file.conf" ReadMode
   fname ← hGetLine h2           -- read the fname from the config file
@@ -242,8 +242,8 @@ test4 h1 h2 = do
 Inferred type: region-polymorphic, as expected.
 Also note the correctly inferred IOModes:
 test4 ∷ ∀ readMode writeMode
-          (pr1 :: * -> *) (pr2 :: * -> *)
-          (cr :: * -> *)
+          (pr1 ∷ * → *) (pr2 ∷ * → *)
+          (cr ∷ * → *)
       . ( pr1 `ParentOf` cr
         , pr2 `ParentOf` cr
         , ReadModes  readMode
