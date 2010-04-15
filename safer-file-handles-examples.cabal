@@ -1,5 +1,5 @@
 name:          safer-file-handles-examples
-version:       0.1.0.1
+version:       0.1.0.2
 cabal-version: >=1.6
 build-type:    Simple
 license:       BSD3
@@ -23,7 +23,7 @@ source-repository head
 Executable example
   Main-is: Example.hs
   GHC-Options: -Wall
-  build-depends: base                      >= 4     && < 4.3
-               , transformers              >= 0.1.4 && < 0.2
-               , MonadCatchIO-transformers == 0.0.2.*
-               , safer-file-handles        >= 0.2   && < 0.5
+  build-depends: base                      >= 4   && < 4.3
+               , transformers              >= 0.2 && < 0.3
+               , MonadCatchIO-transformers >= 0.2 && < 0.3
+               , safer-file-handles        >= 0.4 && < 0.5

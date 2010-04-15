@@ -30,7 +30,8 @@ import System.IO          ( IO )
 import Control.Monad.CatchIO ( MonadCatchIO, catch )
 
 -- from transformers:
-import Control.Monad.Trans ( MonadIO, lift, liftIO )
+import Control.Monad.Trans.Class ( lift )
+import Control.Monad.IO.Class    ( MonadIO, liftIO )
 
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
