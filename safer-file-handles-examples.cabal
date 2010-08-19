@@ -23,7 +23,8 @@ source-repository head
 Executable example
   Main-is: Example.hs
   GHC-Options: -Wall
-  build-depends: base                      >= 4   && < 4.3
-               , transformers              >= 0.2 && < 0.3
-               , MonadCatchIO-transformers >= 0.2 && < 0.3
-               , safer-file-handles        >= 0.5 && < 0.7
+  build-depends: base                      >= 4     && < 4.3
+               , transformers              >= 0.2   && < 0.3
+               , MonadCatchIO-transformers >= 0.2   && < 0.3
+               , safer-file-handles        >= 0.7   && < 0.8
+               , pathtype                  >= 0.0.1 && < 0.6

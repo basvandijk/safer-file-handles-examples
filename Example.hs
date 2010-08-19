@@ -11,27 +11,28 @@
 --------------------------------------------------------------------------------
 
 -- from base:
-import Prelude            ( undefined, fromInteger )
-import Data.Function      ( ($) )
-import Data.Bool          ( Bool(True), (||), otherwise )
-import Data.Ord           ( (<) )
-import Data.Char          ( String )
-import Data.List          ( (++) )
-import Data.IORef         ( newIORef, writeIORef, readIORef )
-import Control.Monad      ( return, (>>=), fail
-                          , (>>), liftM2
-                          )
-import Control.Exception  ( IOException )
-import Control.Concurrent ( threadDelay )
-import Text.Show          ( show )
-import System.IO          ( IO )
+import Prelude                    ( undefined, fromInteger )
+import Data.Function              ( ($), (.) )
+import Data.Bool                  ( Bool(True), (||), otherwise )
+import Data.Ord                   ( (<) )
+import Data.Char                  ( String )
+import Data.List                  ( (++), map )
+import Data.IORef                 ( newIORef, writeIORef, readIORef )
+import Control.Monad              ( return, (>>=), fail, (>>), liftM2 )
+import Control.Exception          ( IOException )
+import Control.Concurrent         ( threadDelay )
+import Text.Show                  ( show )
+import System.IO                  ( IO )
 
 -- from MonadCatchIO-transformers:
-import Control.Monad.CatchIO ( MonadCatchIO, catch )
+import Control.Monad.CatchIO      ( MonadCatchIO, catch )
 
 -- from transformers:
-import Control.Monad.Trans.Class ( lift )
-import Control.Monad.IO.Class    ( MonadIO, liftIO )
+import Control.Monad.Trans.Class  ( lift )
+import Control.Monad.IO.Class     ( MonadIO, liftIO )
+
+-- from pathtype:
+import System.Path                ( RelFile, asRelFile, asAbsFile )
 
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
@@ -41,18 +42,23 @@ import System.IO.SaferFileHandles
 -- Examples
 --------------------------------------------------------------------------------
 
+main ∷ IO ()
 main = testThread
 
 hReport ∷ MonadIO m ⇒ String → m ()
 hReport = print -- TODO: Should actually be: hPutStrLn stderr
 
+fname1, fname2, fname3, fname4, fname5 ∷ RelFile
+[fname1, fname2, fname3, fname4, fname5] =
+    map asRelFile $ map (("fname" ++) . show) [1..5]
+
 test1 = runTopRegion $ do
-          h1 ← openFile "fname1" ReadMode
-          h2 ← openFile "fname1" ReadMode
+          h1 ← openFile fname1 ReadMode
+          h2 ← openFile fname1 ReadMode
           -- Can't allocate the handle outside the top region...
-          -- h3 ← lift $ openFile "fname1" ReadMode
+          -- h3 ← lift $ openFile fname1 ReadMode
           -- There is no region two levels up
-          -- h3 ← lift $ lift $ openFile "fname1" ReadMode
+          -- h3 ← lift $ lift $ openFile fname1 ReadMode
           l1 ← hGetLine h1
           return True
           -- Can't do that: r escapes
@@ -60,12 +66,12 @@ test1 = runTopRegion $ do
 
 -- multiple region test
 test2 = runTopRegion $ do
-          h1 ← openFile "fname1" ReadMode
+          h1 ← openFile fname1 ReadMode
           h3 ← runRegionT $ do
-                 h2 ← openFile "fname2" ReadMode
-                 h3 ← lift (openFile "fname3" ReadMode)
+                 h2 ← openFile fname2 ReadMode
+                 h3 ← lift (openFile fname3 ReadMode)
                  -- Can't allocate the handle outside the top region...
-                 -- h4 ← lift $ lift $ openFile "fname1" ReadMode
+                 -- h4 ← lift $ lift $ openFile fname1 ReadMode
                  l1 ← hGetLine h1
                  l1 ← hGetLine h2
                  l1 ← hGetLine h3
@@ -78,30 +84,30 @@ test2 = runTopRegion $ do
 
 test2' fname = do
   h1 ← openFile fname ReadMode
-  -- If this line is uncommented, test2'r reports an error.
+  -- I this line is uncommented, test2'r reports an error.
   -- Indeed, test2' must then be used within another region rather than
   -- at the `top level'. The reported error clearly states the
   -- violation of the subtyping constraint: a child region computation
   -- cannot be coerced to the type of its ancestor
   -- h2 ← lift $ openFile fname ReadMode
   return ()
-test2'r = runTopRegion (test2' "fname")
+test2'r = runTopRegion (test2' fname1)
 
 testmany ∷ IO String
 testmany = runTopRegion $ do
-             h1 ← openFile "fname1" ReadMode
+             h1 ← openFile fname1 ReadMode
              h5 ← runRegionT $ do
-                    h2 ← openFile "fname2" ReadMode
+                    h2 ← openFile fname2 ReadMode
                     runRegionT $ do
-                      h3 ← openFile "fname3" ReadMode
+                      h3 ← openFile fname3 ReadMode
                       runRegionT $ do
-                        h4 ← openFile "fname4" ReadMode
+                        h4 ← openFile fname4 ReadMode
                         l1 ← hGetLine h1
                         l2 ← hGetLine h2
                         l3 ← hGetLine h3
                         l4 ← hGetLine h4
                         h5 ← lift $ lift $ lift $
-                               openFile "fname5" ReadMode
+                               openFile fname5 ReadMode
                         return h5
              hGetLine h5
 
@@ -109,11 +115,11 @@ testmany = runTopRegion $ do
 -- Now, it won't work...
 {-
 test2' = runTopRegion $ do
-           h1 ← openFile "fname1" ReadMode
+           h1 ← openFile fname1 ReadMode
            let c1 = hGetLine h1
            c1
            ac ← runRegionT $ do
-                  h2 ← openFile "fname2" ReadMode
+                  h2 ← openFile fname2 ReadMode
                   -- Fake the SIO type. Won't work though: h2 handle contaminates...
                   return ((hGetLine h2) `asTypeOf` c1)
 
@@ -157,13 +163,13 @@ test2'' = runTopRegion $ do
 
 -- Attempts to leak handles and computations via mutation
 testref = runTopRegion $ do
-            h1 ← openFile "fname1" ReadMode
+            h1 ← openFile fname1 ReadMode
             rh ← liftIO $ newIORef undefined    -- a ref cell holding a handle
             let c1 = hGetLine h1
             c1
             ra ← liftIO $ newIORef undefined    -- a ref cell holding a computation
             runRegionT $ do
-              h2 ← openFile "fname2" ReadMode
+              h2 ← openFile fname2 ReadMode
 
               -- TODO: this should work but doesn't!
               -- liftIO $ writeIORef rh h1
@@ -198,7 +204,7 @@ till condition iteration = loop where
             if b then return () else iteration >> loop
 
 test3 = runTopRegion $ do
-          h1 ← openFile "/tmp/SafeHandles.hs" ReadMode
+          h1 ← openFile (asAbsFile "/tmp/SafeHandles.hs") ReadMode
           h3 ← runRegionT $ test3_internal h1
           -- once we closed h2, we write the rest of h1 into h3
           till (hIsEOF h1)
@@ -221,10 +227,10 @@ test3_internal ∷ ∀ ioMode
                → RegionT s1 (RegionT s2 pr1)
                    (RegionalFileHandle WriteMode (RegionT s2 pr1))
 test3_internal h1 = do
-  h2 ← openFile "/tmp/ex-file.conf" ReadMode
+  h2 ← openFile (asAbsFile "/tmp/ex-file.conf") ReadMode
   fname ← hGetLine h2           -- read the fname from the config file
   -- allocate handle in the parent region
-  h3 ← lift $ openFile fname WriteMode
+  h3 ← lift $ openFile (asAbsFile fname) WriteMode
   -- zip h2 and h1 into h3
   hPutStrLn h3 fname
   till (liftM2 (||) (hIsEOF h2) (hIsEOF h1))
@@ -272,8 +278,8 @@ test_copy fname_in fname_out = do
      hReport ("Exception caught: " ++ show e)
      hPutStrLn hout ("Copying failed: " ++ show e)
 
-test_of1 = runTopRegion (test_copy "/etc/mtab" "/tmp/t1")
-test_of2 = runTopRegion (test_copy "/non-existent" "/tmp/t1")
+test_of1 = runTopRegion (test_copy (asAbsFile "/etc/mtab")     (asAbsFile "/tmp/t1"))
+test_of2 = runTopRegion (test_copy (asAbsFile "/non-existent") (asAbsFile "/tmp/t1"))
 
 -- Implement this test by Ken:
 {-
@@ -288,7 +294,7 @@ forward all three copies of the same handle to Q or to P?
 test_dup = runTopRegion $ do               -- Region P
   hq ← runRegionT $ do                     -- region Q
     hr ← runRegionT $ do                   -- region R
-      h2  ← openFile "/etc/mtab" ReadMode
+      h2  ← openFile (asAbsFile "/etc/mtab") ReadMode
       _   ← dup h2 -- duplicates are OK
       h2' ← dup h2
       return h2'
@@ -301,7 +307,7 @@ test_dup = runTopRegion $ do               -- Region P
 -- Example suggested by Matthew Fluet
 
 test5 = runTopRegion $ do
-  h ← runRegionT $ test5_internal "/tmp/ex-file2.conf"
+  h ← runRegionT $ test5_internal (asAbsFile "/tmp/ex-file2.conf")
   l ← hGetLine h
   hReport $ "Continuing processing the older file, read: " ++ l
   hReport "test5 done"
@@ -310,8 +316,8 @@ test5_internal conf_fname = do
   hc ← openFile conf_fname ReadMode
   fname1 ← hGetLine hc  -- read the fname from the config file
   fname2 ← hGetLine hc  -- read the other fname from the config file
-  h1 ← openFile fname1 ReadMode
-  h2 ← openFile fname2 ReadMode
+  h1 ← openFile (asAbsFile fname1) ReadMode
+  h2 ← openFile (asAbsFile fname2) ReadMode
   l1 ← hGetLine h1
   l2 ← hGetLine h2
   hReport $ "read entries: " ++ show (l1,l2)
@@ -355,9 +361,9 @@ testp4r = runTopRegion $ do
 -}
 
 testThread = runTopRegion $ do
-  h1 ← openFile "fname1" ReadMode
-  h2 ← openFile "fname2" ReadWriteMode
-  h3 ← openFile "fname3" WriteMode
+  h1 ← openFile fname1 ReadMode
+  h2 ← openFile fname2 ReadWriteMode
+  h3 ← openFile fname3 WriteMode
 
   tId1 ← forkTopRegion $ do
     liftIO $ threadDelay 1000000
