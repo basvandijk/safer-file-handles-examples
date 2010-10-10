@@ -365,13 +365,13 @@ testThread = runTopRegion $ do
   h2 ← openFile fname2 ReadWriteMode
   h3 ← openFile fname3 WriteMode
 
-  tId1 ← forkTopRegion $ do
+  tId1 ← forkIOTopRegion $ do
     liftIO $ threadDelay 1000000
     s ← hGetLine h1
     hPutStrLn h2 s
     putStrLn "Terminating thread 1."
 
-  tId2 ← forkTopRegion $ do
+  tId2 ← forkIOTopRegion $ do
     liftIO $ threadDelay 2000000
     hSeek h2 AbsoluteSeek 0
     s ← hGetLine h2
