@@ -22,7 +22,6 @@ source-repository head
 
 Executable example
   Main-is: Example.hs
-  GHC-Options: -Wall
   build-depends: base                      >= 4     && < 4.3
                , transformers              >= 0.2   && < 0.3
                , MonadCatchIO-transformers >= 0.2   && < 0.3

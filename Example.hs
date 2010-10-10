@@ -1,5 +1,4 @@
 {-# LANGUAGE UnicodeSyntax
-           , NoImplicitPrelude
            , RankNTypes
            , KindSignatures
            , ScopedTypeVariables
@@ -11,7 +10,7 @@
 --------------------------------------------------------------------------------
 
 -- from base:
-import Prelude                    ( undefined, fromInteger )
+import Prelude                    ( undefined, fromInteger, id )
 import Data.Function              ( ($), (.) )
 import Data.Bool                  ( Bool(True), (||), otherwise )
 import Data.Ord                   ( (<) )
@@ -84,14 +83,14 @@ test2 = runTopRegion $ do
 
 test2' fname = do
   h1 ← openFile fname ReadMode
-  -- I this line is uncommented, test2'r reports an error.
+  -- If this line is uncommented, test2'r reports an error.
   -- Indeed, test2' must then be used within another region rather than
   -- at the `top level'. The reported error clearly states the
   -- violation of the subtyping constraint: a child region computation
   -- cannot be coerced to the type of its ancestor
   -- h2 ← lift $ openFile fname ReadMode
   return ()
-test2'r = runTopRegion (test2' fname1)
+test2'r = runTopRegion $ test2' fname1
 
 testmany ∷ IO String
 testmany = runTopRegion $ do
@@ -114,22 +113,22 @@ testmany = runTopRegion $ do
 -- An attempt to leak the computation.
 -- Now, it won't work...
 {-
-test2' = runTopRegion $ do
-           h1 ← openFile fname1 ReadMode
-           let c1 = hGetLine h1
-           c1
-           ac ← runRegionT $ do
-                  h2 ← openFile fname2 ReadMode
-                  -- Fake the SIO type. Won't work though: h2 handle contaminates...
-                  return ((hGetLine h2) `asTypeOf` c1)
+test2'' = runTopRegion $ do
+            h1 ← openFile fname1 ReadMode
+            let c1 = hGetLine h1
+            c1
+            ac ← runRegionT $ do
+                   h2 ← openFile fname2 ReadMode
+                   -- Fake the SIO type. Won't work though: h2 handle contaminates...
+                   return ((hGetLine h2) `asTypeOf` c1)
 
-           -- ac
-           runRegionT $ do
-             -- That too is a type error: lack of polymorphism in runRegionT
-             -- ac
-             return ()
+            -- ac
+            runRegionT $ do
+              -- That too is a type error: lack of polymorphism in runRegionT
+              -- ac
+              return ()
 
-           return True
+            return True
 -}
 
 -- The above error is merely due to force monomorphism in the
@@ -142,10 +141,10 @@ test2' = runTopRegion $ do
 newtype WC r1 = WC
     { unWC ∷ ∀ r2 . RegionT r2 (RegionT r1 IO) String }
 
-test2'' = runTopRegion $ do
-  h1 ← openFile "/dev/null" ReadMode
+test2''' = runTopRegion $ do
+  h1 ← openFile (asAbsFile "/dev/null") ReadMode
   ac ← runRegionT $ do
-    h2 ← openFile "/dev/null" ReadMode
+    h2 ← openFile (asAbsFile "/dev/null") ReadMode
     -- Fake the IORT type. Won't work though... Good
     return $ WC $ hGetLine h2
 
@@ -171,8 +170,7 @@ testref = runTopRegion $ do
             runRegionT $ do
               h2 ← openFile fname2 ReadMode
 
-              -- TODO: this should work but doesn't!
-              -- liftIO $ writeIORef rh h1
+              liftIO $ writeIORef rh h1
 
               -- liftIO $ writeIORef rh h2 -- type error, 's' of the inner region escapes
 
@@ -186,7 +184,7 @@ testref = runTopRegion $ do
               return ()
 
             runRegionT $ do
-              -- liftIO $ readIORef ra >>= id
+              liftIO $ readIORef ra >>= id
               return ()
 
             return True
