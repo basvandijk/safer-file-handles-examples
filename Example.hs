@@ -11,7 +11,7 @@
 
 -- from base:
 import Prelude                    ( undefined, fromInteger, id )
-import Data.Function              ( ($), (.) )
+import Data.Function              ( ($), (.), flip )
 import Data.Bool                  ( Bool(True), (||), otherwise )
 import Data.Ord                   ( (<) )
 import Data.Char                  ( String )
@@ -44,8 +44,9 @@ import System.IO.SaferFileHandles
 main ∷ IO ()
 main = testThread
 
-hReport ∷ MonadIO m ⇒ String → m ()
-hReport = print -- TODO: Should actually be: hPutStrLn stderr
+-- inferred type:
+-- hReport :: (AncestorRegion cr cr) => String -> cr ()
+hReport s = stderr >>= flip hPutStrLn s
 
 fname1, fname2, fname3, fname4, fname5 ∷ RelFile
 [fname1, fname2, fname3, fname4, fname5] =
@@ -174,17 +175,22 @@ testref = runTopRegion $ do
 
               -- liftIO $ writeIORef rh h2 -- type error, 's' of the inner region escapes
 
-              -- TODO: this should work but doesn't!
-              -- liftIO $ writeIORef ra (hGetLine h1)
+              -- ok to exec the content of ra in the parent or in another sub-region
+              -- of the parent region
+              liftIO $ writeIORef ra (hGetLine h1)
 
-              -- TODO: this should work but doesn't!
-              -- liftIO $ writeIORef ra (lift (hGetLine h2))
+              -- not ok: must not do anything with h2 outside this region
+              -- liftIO $ writeIORef ra (lift (hGetLine h2))  -- error: subtyping violation
 
               -- liftIO $ writeIORef ra (hGetLine h2) -- error: subtyping violation
               return ()
 
+            a <- liftIO $ readIORef ra
+            a
+
             runRegionT $ do
-              liftIO $ readIORef ra >>= id
+              a <- liftIO $ readIORef ra
+              lift a
               return ()
 
             return True
@@ -326,13 +332,9 @@ test5_internal conf_fname = do
 
 -- Issues with inferring region-polymorphic code
 testp1 h = hGetLine h
--- testp1 ∷ ∀ ioMode (pr :: * -> *) (cr :: * -> *)
---        . ( pr `AncestorRegion` cr
---          , MonadIO cr
---          , ReadModes ioMode
---          )
---        ⇒ RegionalFileHandle ioMode pr
---        → cr String
+-- inferred type:
+-- testp1 :: (AncestorRegion pr cr, MonadIO cr, ReadModes ioMode)
+--        => RegionalFileHandle ioMode pr -> cr String
 
 -- The following, essentially equivalent, code however gives problem
 -- testp2 h = runRegionT $ hGetLine h
@@ -340,23 +342,17 @@ testp1 h = hGetLine h
 -- And so does this
 -- testp3 h = hGetLine h >> runRegionT (hGetLine h)
 
-{- TODO: testp4 gives the following type error:
-
-Ambiguous type variable `resource' in the constraint:
-      `Control.Monad.Trans.Region.Internal.Resource resource'
-
 -- But the following is OK:
 testp4 h = runRegionT $ lift $ hGetLine h
-{- inferred type is polymorphic as desired.
-testp4 :: (RMonadIO m, MonadRaise m1 (IORT s m)) =>
-          SHandle m1 -> IORT s m String
--}
+
+-- inferred type is polymorphic as desired:
+-- testp4 :: (MonadCatchIO m, AncestorRegion pr m, ReadModes ioMode)
+--        => RegionalFileHandle ioMode pr -> m String
 
 -- usage example
 testp4r = runTopRegion $ do
-  h1 ← openFile "/etc/motd" ReadMode
+  h1 <- openFile (asAbsFile "/etc/motd") ReadMode
   testp4 h1
--}
 
 testThread = runTopRegion $ do
   h1 ← openFile fname1 ReadMode
