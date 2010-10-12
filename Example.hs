@@ -219,7 +219,7 @@ test3_internal ∷ ∀ ioMode
                    (pr1 ∷ * → *) (pr2 ∷ * → *)
                . ( ReadModes ioMode
                  , MonadCatchIO pr1
-                 , pr2 `ParentOf` (RegionT s1 (RegionT s2 pr1))
+                 , pr2 `AncestorRegion` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
                → RegionT s1 (RegionT s2 pr1)
@@ -248,8 +248,8 @@ Also note the correctly inferred IOModes:
 test4 ∷ ∀ readMode writeMode
           (pr1 ∷ * → *) (pr2 ∷ * → *)
           (cr ∷ * → *)
-      . ( pr1 `ParentOf` cr
-        , pr2 `ParentOf` cr
+      . ( pr1 `AncestorRegion` cr
+        , pr2 `AncestorRegion` cr
         , ReadModes  readMode
         , WriteModes writeMode
         , MonadIO cr
@@ -327,7 +327,7 @@ test5_internal conf_fname = do
 -- Issues with inferring region-polymorphic code
 testp1 h = hGetLine h
 -- testp1 ∷ ∀ ioMode (pr :: * -> *) (cr :: * -> *)
---        . ( pr `ParentOf` cr
+--        . ( pr `AncestorRegion` cr
 --          , MonadIO cr
 --          , ReadModes ioMode
 --          )
