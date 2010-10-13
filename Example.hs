@@ -33,6 +33,9 @@ import Control.Monad.IO.Class     ( MonadIO, liftIO )
 -- from pathtype:
 import System.Path                ( RelFile, asRelFile, asAbsFile )
 
+-- from regions:
+import Control.Monad.Trans.Region.Concurrent ( forkIOTopRegion )
+
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
 
@@ -377,3 +380,4 @@ testThread = runTopRegion $ do
 
 
 -- The End ---------------------------------------------------------------------
+
