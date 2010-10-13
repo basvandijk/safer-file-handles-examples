@@ -48,8 +48,8 @@ main ∷ IO ()
 main = testThread
 
 -- inferred type:
--- hReport :: (AncestorRegion cr cr) => String -> cr ()
-hReport s = stderr >>= flip hPutStrLn s
+-- hReport ∷ (MonadIO cr, AncestorRegion RootRegion cr) ⇒ String → cr ()
+hReport s = hPutStrLn stderr s
 
 fname1, fname2, fname3, fname4, fname5 ∷ RelFile
 [fname1, fname2, fname3, fname4, fname5] =
