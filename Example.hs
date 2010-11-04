@@ -34,7 +34,7 @@ import Control.Monad.IO.Class     ( MonadIO, liftIO )
 import System.Path                ( RelFile, asRelFile, asAbsFile )
 
 -- from regions:
-import Control.Monad.Trans.Region.Concurrent ( forkIOTopRegion )
+import qualified Control.Monad.Trans.Region.Concurrent as Region ( forkIO )
 
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
@@ -362,13 +362,13 @@ testThread = runTopRegion $ do
   h2 ← openFile fname2 ReadWriteMode
   h3 ← openFile fname3 WriteMode
 
-  tId1 ← forkIOTopRegion $ do
+  tId1 ← Region.forkIO $ do
     liftIO $ threadDelay 1000000
     s ← hGetLine h1
     hPutStrLn h2 s
     putStrLn "Terminating thread 1."
 
-  tId2 ← forkIOTopRegion $ do
+  tId2 ← Region.forkIO $ do
     liftIO $ threadDelay 2000000
     hSeek h2 AbsoluteSeek 0
     s ← hGetLine h2

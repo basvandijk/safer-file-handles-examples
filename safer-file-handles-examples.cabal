@@ -22,7 +22,7 @@ source-repository head
 
 Executable example
   Main-is: Example.hs
-  build-depends: base                      >= 4     && < 4.3
+  build-depends: base                      >= 4     && < 4.4
                , transformers              >= 0.2   && < 0.3
                , MonadCatchIO-transformers >= 0.2   && < 0.3
                , regions                   >= 0.8   && < 0.9
