@@ -23,8 +23,9 @@ import Control.Concurrent         ( threadDelay )
 import Text.Show                  ( show )
 import System.IO                  ( IO )
 
--- from MonadCatchIO-transformers:
-import Control.Monad.CatchIO      ( MonadCatchIO, catch )
+-- from monad-peel:
+import Control.Monad.IO.Peel      ( MonadPeelIO )
+import Control.Exception.Peel     ( catch )
 
 -- from transformers:
 import Control.Monad.Trans.Class  ( lift )
@@ -55,7 +56,8 @@ fname1, fname2, fname3, fname4, fname5 ∷ RelFile
 [fname1, fname2, fname3, fname4, fname5] =
     map asRelFile $ map (("fname" ++) . show) [1..5]
 
-test1 = runTopRegion $ do
+test1 ∷ IO Bool
+test1 = runRegionT $ do
           h1 ← openFile fname1 ReadMode
           h2 ← openFile fname1 ReadMode
           -- Can't allocate the handle outside the top region...
@@ -68,7 +70,8 @@ test1 = runTopRegion $ do
           -- return h2
 
 -- multiple region test
-test2 = runTopRegion $ do
+test2 ∷ IO String
+test2 = runRegionT $ do
           h1 ← openFile fname1 ReadMode
           h3 ← runRegionT $ do
                  h2 ← openFile fname2 ReadMode
@@ -94,10 +97,12 @@ test2' fname = do
   -- cannot be coerced to the type of its ancestor
   -- h2 ← lift $ openFile fname ReadMode
   return ()
-test2'r = runTopRegion $ test2' fname1
+
+test2'r ∷ IO ()
+test2'r = runRegionT $ test2' fname1
 
 testmany ∷ IO String
-testmany = runTopRegion $ do
+testmany = runRegionT $ do
              h1 ← openFile fname1 ReadMode
              h5 ← runRegionT $ do
                     h2 ← openFile fname2 ReadMode
@@ -117,7 +122,8 @@ testmany = runTopRegion $ do
 -- An attempt to leak the computation.
 -- Now, it won't work...
 {-
-test2'' = runTopRegion $ do
+test2'' ∷ IO ()
+test2'' = runRegionT $ do
             h1 ← openFile fname1 ReadMode
             let c1 = hGetLine h1
             c1
@@ -145,7 +151,8 @@ test2'' = runTopRegion $ do
 newtype WC r1 = WC
     { unWC ∷ ∀ r2 . RegionT r2 (RegionT r1 IO) String }
 
-test2''' = runTopRegion $ do
+test2''' ∷ IO ()
+test2''' = runRegionT $ do
   h1 ← openFile (asAbsFile "/dev/null") ReadMode
   ac ← runRegionT $ do
     h2 ← openFile (asAbsFile "/dev/null") ReadMode
@@ -165,7 +172,8 @@ test2''' = runTopRegion $ do
 -}
 
 -- Attempts to leak handles and computations via mutation
-testref = runTopRegion $ do
+testref ∷ IO Bool
+testref = runRegionT $ do
             h1 ← openFile fname1 ReadMode
             rh ← liftIO $ newIORef undefined    -- a ref cell holding a handle
             let c1 = hGetLine h1
@@ -210,7 +218,8 @@ till condition iteration = loop where
   loop = do b ← condition
             if b then return () else iteration >> loop
 
-test3 = runTopRegion $ do
+test3 ∷ IO ()
+test3 = runRegionT $ do
           h1 ← openFile (asAbsFile "/tmp/SafeHandles.hs") ReadMode
           h3 ← runRegionT $ test3_internal h1
           -- once we closed h2, we write the rest of h1 into h3
@@ -227,7 +236,7 @@ test3_internal ∷ ∀ ioMode
                    s1 s2
                    (pr1 ∷ * → *) (pr2 ∷ * → *)
                . ( ReadModes ioMode
-                 , MonadCatchIO pr1
+                 , MonadPeelIO pr1
                  , pr2 `AncestorRegion` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
@@ -285,8 +294,9 @@ test_copy fname_in fname_out = do
      hReport ("Exception caught: " ++ show e)
      hPutStrLn hout ("Copying failed: " ++ show e)
 
-test_of1 = runTopRegion (test_copy (asAbsFile "/etc/mtab")     (asAbsFile "/tmp/t1"))
-test_of2 = runTopRegion (test_copy (asAbsFile "/non-existent") (asAbsFile "/tmp/t1"))
+test_of1, test_of2 ∷ IO ()
+test_of1 = runRegionT (test_copy (asAbsFile "/etc/mtab")     (asAbsFile "/tmp/t1"))
+test_of2 = runRegionT (test_copy (asAbsFile "/non-existent") (asAbsFile "/tmp/t1"))
 
 -- Implement this test by Ken:
 {-
@@ -298,7 +308,8 @@ forward all three copies of the same handle to Q or to P?
 -}
 
 -- Dynamically extending the lifetime of handles
-test_dup = runTopRegion $ do               -- Region P
+test_dup ∷ IO ()
+test_dup = runRegionT $ do                 -- Region P
   hq ← runRegionT $ do                     -- region Q
     hr ← runRegionT $ do                   -- region R
       h2  ← openFile (asAbsFile "/etc/mtab") ReadMode
@@ -313,7 +324,8 @@ test_dup = runTopRegion $ do               -- Region P
 
 -- Example suggested by Matthew Fluet
 
-test5 = runTopRegion $ do
+test5 ∷ IO ()
+test5 = runRegionT $ do
   h ← runRegionT $ test5_internal (asAbsFile "/tmp/ex-file2.conf")
   l ← hGetLine h
   hReport $ "Continuing processing the older file, read: " ++ l
@@ -349,15 +361,17 @@ testp1 h = hGetLine h
 testp4 h = runRegionT $ lift $ hGetLine h
 
 -- inferred type is polymorphic as desired:
--- testp4 :: (MonadCatchIO m, AncestorRegion pr m, ReadModes ioMode)
+-- testp4 :: (MonadPeelIO m, AncestorRegion pr m, ReadModes ioMode)
 --        => RegionalFileHandle ioMode pr -> m String
 
 -- usage example
-testp4r = runTopRegion $ do
+testp4r ∷ IO String
+testp4r = runRegionT $ do
   h1 <- openFile (asAbsFile "/etc/motd") ReadMode
   testp4 h1
 
-testThread = runTopRegion $ do
+testThread ∷ IO ()
+testThread = runRegionT $ do
   h1 ← openFile fname1 ReadMode
   h2 ← openFile fname2 ReadWriteMode
   h3 ← openFile fname3 WriteMode
