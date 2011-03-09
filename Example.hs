@@ -10,22 +10,24 @@
 --------------------------------------------------------------------------------
 
 -- from base:
-import Prelude                    ( undefined, fromInteger, id )
+import Prelude                    ( undefined, fromInteger, id, asTypeOf )
 import Data.Function              ( ($), (.), flip )
 import Data.Bool                  ( Bool(True), (||), otherwise )
 import Data.Ord                   ( (<) )
 import Data.Char                  ( String )
 import Data.List                  ( (++), map )
 import Data.IORef                 ( newIORef, writeIORef, readIORef )
-import Control.Monad              ( return, (>>=), fail, (>>), liftM2 )
+import Control.Monad              ( return, (>>=), fail, (>>), liftM2, void )
 import Control.Exception          ( IOException )
 import Control.Concurrent         ( threadDelay )
 import Text.Show                  ( show )
 import System.IO                  ( IO )
 
--- from monad-peel:
-import Control.Monad.IO.Peel      ( MonadPeelIO )
-import Control.Exception.Peel     ( catch )
+import Control.Concurrent.MVar
+
+-- from monad-control:
+import Control.Monad.IO.Control   ( MonadControlIO )
+import Control.Exception.Control  ( catch )
 
 -- from transformers:
 import Control.Monad.Trans.Class  ( lift )
@@ -34,8 +36,6 @@ import Control.Monad.IO.Class     ( MonadIO, liftIO )
 -- from pathtype:
 import System.Path                ( RelFile, asRelFile, asAbsFile )
 
--- from regions:
-import qualified Control.Monad.Trans.Region.Concurrent as Region ( forkIO )
 
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
@@ -46,7 +46,7 @@ import System.IO.SaferFileHandles
 --------------------------------------------------------------------------------
 
 main ∷ IO ()
-main = testThread
+main = void $ test1
 
 -- inferred type:
 -- hReport ∷ (MonadIO cr, AncestorRegion RootRegion cr) ⇒ String → cr ()
@@ -122,7 +122,7 @@ testmany = runRegionT $ do
 -- An attempt to leak the computation.
 -- Now, it won't work...
 {-
-test2'' ∷ IO ()
+test2'' ∷ IO Bool
 test2'' = runRegionT $ do
             h1 ← openFile fname1 ReadMode
             let c1 = hGetLine h1
@@ -151,7 +151,7 @@ test2'' = runRegionT $ do
 newtype WC r1 = WC
     { unWC ∷ ∀ r2 . RegionT r2 (RegionT r1 IO) String }
 
-test2''' ∷ IO ()
+test2''' ∷ IO Bool
 test2''' = runRegionT $ do
   h1 ← openFile (asAbsFile "/dev/null") ReadMode
   ac ← runRegionT $ do
@@ -236,7 +236,7 @@ test3_internal ∷ ∀ ioMode
                    s1 s2
                    (pr1 ∷ * → *) (pr2 ∷ * → *)
                . ( ReadModes ioMode
-                 , MonadPeelIO pr1
+                 , MonadControlIO pr1
                  , pr2 `AncestorRegion` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
@@ -361,7 +361,7 @@ testp1 h = hGetLine h
 testp4 h = runRegionT $ lift $ hGetLine h
 
 -- inferred type is polymorphic as desired:
--- testp4 :: (MonadPeelIO m, AncestorRegion pr m, ReadModes ioMode)
+-- testp4 :: (MonadControlIO m, AncestorRegion pr m, ReadModes ioMode)
 --        => RegionalFileHandle ioMode pr -> m String
 
 -- usage example
@@ -369,28 +369,6 @@ testp4r ∷ IO String
 testp4r = runRegionT $ do
   h1 <- openFile (asAbsFile "/etc/motd") ReadMode
   testp4 h1
-
-testThread ∷ IO ()
-testThread = runRegionT $ do
-  h1 ← openFile fname1 ReadMode
-  h2 ← openFile fname2 ReadWriteMode
-  h3 ← openFile fname3 WriteMode
-
-  tId1 ← Region.forkIO $ do
-    liftIO $ threadDelay 1000000
-    s ← hGetLine h1
-    hPutStrLn h2 s
-    putStrLn "Terminating thread 1."
-
-  tId2 ← Region.forkIO $ do
-    liftIO $ threadDelay 2000000
-    hSeek h2 AbsoluteSeek 0
-    s ← hGetLine h2
-    hPutStrLn h3 s
-    putStrLn "Terminating thread 2."
-
-  liftIO $ threadDelay 3000000
-  putStrLn "Terminating main thread."
 
 
 -- The End ---------------------------------------------------------------------

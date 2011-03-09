@@ -1,5 +1,5 @@
 name:          safer-file-handles-examples
-version:       0.1.0.2
+version:       0.2
 cabal-version: >=1.6
 build-type:    Simple
 license:       BSD3
@@ -24,7 +24,7 @@ Executable example
   Main-is: Example.hs
   build-depends: base                >= 4     && < 4.4
                , transformers        >= 0.2   && < 0.3
-               , monad-peel          >= 0.1   && < 0.2
-               , regions             >= 0.8   && < 0.9
-               , safer-file-handles  >= 0.9   && < 0.10
+               , monad-control       >= 0.2   && < 0.3
+               , regions             >= 0.9   && < 0.10
+               , safer-file-handles  >= 0.10  && < 0.11
                , pathtype            >= 0.0.1 && < 0.6
