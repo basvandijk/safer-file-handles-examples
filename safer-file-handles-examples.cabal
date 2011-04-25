@@ -17,8 +17,8 @@ description:   This package provides examples for the @safer-file-handles@ packa
                <http://okmij.org/ftp/Haskell/regions.html#light-weight>
 
 source-repository head
-  Type:     darcs
-  Location: http://code.haskell.org/~basvandijk/code/safer-file-handles-examples
+  Type:     git
+  Location: git://github.com/basvandijk/safer-file-handles-examples.git
 
 Executable example
   Main-is: Example.hs
