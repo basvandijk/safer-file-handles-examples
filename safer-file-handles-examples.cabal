@@ -23,9 +23,8 @@ source-repository head
 
 Executable example
   Main-is: Example.hs
-  build-depends: base                >= 4     && < 4.4
+  build-depends: base                >= 4     && < 4.5
                , transformers        >= 0.2   && < 0.3
-               , monad-control       >= 0.2   && < 0.3
-               , regions             >= 0.9   && < 0.10
-               , safer-file-handles  >= 0.10  && < 0.11
+               , regions             >= 0.11  && < 0.12
+               , safer-file-handles  >= 0.11  && < 0.12
                , pathtype            >= 0.0.1 && < 0.6

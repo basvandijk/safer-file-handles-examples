@@ -10,24 +10,19 @@
 --------------------------------------------------------------------------------
 
 -- from base:
-import Prelude                    ( undefined, fromInteger, id, asTypeOf )
+import Prelude                    ( String, undefined, fromInteger, id, asTypeOf )
 import Data.Function              ( ($), (.), flip )
 import Data.Bool                  ( Bool(True), (||), otherwise )
 import Data.Ord                   ( (<) )
-import Data.Char                  ( String )
 import Data.List                  ( (++), map )
 import Data.IORef                 ( newIORef, writeIORef, readIORef )
 import Control.Monad              ( return, (>>=), fail, (>>), liftM2, void )
-import Control.Exception          ( IOException )
+import Control.Exception          ( Exception, IOException )
 import Control.Concurrent         ( threadDelay )
 import Text.Show                  ( show )
 import System.IO                  ( IO )
-
 import Control.Concurrent.MVar
-
--- from monad-control:
-import Control.Monad.IO.Control   ( MonadControlIO )
-import Control.Exception.Control  ( catch )
+import qualified Control.Exception as E ( catch )
 
 -- from transformers:
 import Control.Monad.Trans.Class  ( lift )
@@ -36,6 +31,8 @@ import Control.Monad.IO.Class     ( MonadIO, liftIO )
 -- from pathtype:
 import System.Path                ( RelFile, asRelFile, asAbsFile )
 
+-- from regions:
+import Control.Monad.Trans.Region.Unsafe ( unsafeControlIO )
 
 -- from safer-file-handles:
 import System.IO.SaferFileHandles
@@ -236,7 +233,7 @@ test3_internal ∷ ∀ ioMode
                    s1 s2
                    (pr1 ∷ * → *) (pr2 ∷ * → *)
                . ( ReadModes ioMode
-                 , MonadControlIO pr1
+                 , RegionControlIO pr1
                  , pr2 `AncestorRegion` (RegionT s1 (RegionT s2 pr1))
                  )
                ⇒ RegionalFileHandle ioMode pr2
@@ -293,6 +290,14 @@ test_copy fname_in fname_out = do
    `catch` \(e ∷ IOException) -> do
      hReport ("Exception caught: " ++ show e)
      hPutStrLn hout ("Copying failed: " ++ show e)
+
+catch ∷ (RegionControlIO m, Exception e)
+      ⇒ m α       -- ^ The computation to run
+      → (e → m α) -- ^ Handler to invoke if an exception is raised
+      → m α
+catch a handler = unsafeControlIO $ \runInIO →
+                    E.catch (runInIO a)
+                            (\e → runInIO $ handler e)
 
 test_of1, test_of2 ∷ IO ()
 test_of1 = runRegionT (test_copy (asAbsFile "/etc/mtab")     (asAbsFile "/tmp/t1"))
